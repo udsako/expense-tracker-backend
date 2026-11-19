@@ -11,13 +11,14 @@ class BudgetController extends Controller
     {
         $month = $request->query('month', now()->format('Y-m'));
         $accountId = $request->query('account_id');
+        $half = $request->query('half', 'first'); // 'first' (1st-14th) or 'second' (15th-end)
         [$year, $monthNum] = explode('-', $month);
 
         $query = $request->user()->budgets()
             ->with('account:id,name,institution')
             ->where(function ($q) use ($month, $year) {
                 $q->where(function ($sub) use ($month) {
-                    $sub->where('period', 'monthly')->where('month', $month);
+                    $sub->whereIn('period', ['monthly', 'biweekly'])->where('month', $month);
                 })->orWhere(function ($sub) use ($year) {
                     $sub->where('period', 'yearly')->where('month', 'like', "{$year}-%");
                 });
@@ -27,14 +28,18 @@ class BudgetController extends Controller
             $query->where('account_id', $accountId);
         }
 
-        $budgets = $query->orderBy('id', 'desc')->get()->map(function ($budget) use ($request, $year, $monthNum) {
+        $budgets = $query->orderBy('id', 'desc')->get()->map(function ($budget) use ($request, $year, $monthNum, $month, $half) {
             $expenseQuery = $request->user()->expenses()
                 ->where('type', 'expense')
                 ->where('is_excluded', false)
                 ->whereRaw('LOWER(category) = ?', [strtolower(trim($budget->category))])
                 ->whereYear('date', $year);
 
-            if ($budget->period !== 'yearly') {
+            if ($budget->period === 'biweekly') {
+                $startDate = $half === 'second' ? "{$month}-15" : "{$month}-01";
+                $endDate = $half === 'second' ? date('Y-m-t', strtotime("{$month}-01")) : "{$month}-14";
+                $expenseQuery->whereBetween('date', [$startDate, $endDate]);
+            } elseif ($budget->period !== 'yearly') {
                 $expenseQuery->whereMonth('date', $monthNum);
             }
 
@@ -71,7 +76,7 @@ class BudgetController extends Controller
             'account_id' => 'nullable|exists:accounts,id',
             'category' => 'required|string|max:100',
             'amount' => 'required|numeric|min:1',
-            'period' => 'required|in:monthly,yearly',
+            'period' => 'required|in:biweekly,monthly,yearly',
             'month' => 'required|date_format:Y-m',
         ]);
 
@@ -83,7 +88,7 @@ class BudgetController extends Controller
         }
 
         $categoryName = ucfirst(trim($validated['category']));
-        $periodLabel = ucfirst($validated['period']);
+        $periodLabel = $validated['period'] === 'biweekly' ? 'Bi-Weekly' : ucfirst($validated['period']);
 
         $budget = $request->user()->budgets()->updateOrCreate(
             [

@@ -19,10 +19,33 @@ class AccountController extends Controller
             'mega chicken', 'coldstone', 'cold stone', 'panarottis', 'chicken republic',
             'kilimanjaro', 'sweet sensation', 'tastee', 'the place', 'domino', 'pizza',
             'shawarma', 'suya', 'buka', 'restaurant', 'eatery', 'bakery', 'cafe', 'coffee',
-            'shoprite', 'spar', 'prince ebeano', 'blenco', 'justrite', 'supermarket',
             'yam', 'beef', 'chicken', 'potato', 'potatoes', 'rice', 'beans', 'plantain',
             'garri', 'fish', 'turkey', 'egg', 'eggs', 'bread', 'milk', 'palm oil', 'food',
-            'grocer', 'dinner', 'lunch', 'breakfast',
+            'groceries', 'dinner', 'lunch', 'breakfast',
+        ],
+        'Shopping' => [
+            'jumia', 'temu', 'shein', 'aliexpress', 'konga', 'amazon', 'ebay', 'zara', 'asos', 'shoprite', 'spar', 'prince ebeano', 'blenco', 'justrite', 'supermarket',
+        ],
+        'Fashion & Beauty' => [
+            'shoe', 'shoes', 'sneaker', 'sneakers', 'heels', 'sandals', 'slippers', 'bag', 'handbag',
+            'clothes', 'clothing', 'dress', 'shirt', 'trouser', 'trousers', 'jeans', 'skirt', 'outfit',
+            'boutique', 'fashion', 'tailor', 'fabric', 'asoebi',
+            'salon', 'saloon', 'barber', 'barbing', 'hair', 'braids', 'wig', 'spa',
+            'nails', 'pedicure', 'manicure', 'skincare', 'makeup', 'cosmetics', 'perfume', 'lotion',
+        ],
+        'Gadgets' => [
+            'headphone', 'headphones', 'earpod', 'earpods', 'airpod', 'airpods', 'earpiece', 'headset',
+            'charger', 'powerbank', 'power bank', 'phone', 'iphone', 'samsung', 'redmi', 'tecno', 'infinix',
+            'laptop', 'macbook', 'tablet', 'ipad', 'gadget', 'gadgets', 'speaker', 'smartwatch', 'cable', 'adapter',
+        ],
+        'Self-Transfer' => [
+            'self transfer', 'slef transfer', 'transfer to self', 'from self', 'to self',
+            'self-transfer', 'own account', 'my account', 'internal transfer',
+        ],
+        'Family & Friends' => [
+            'family', 'friend', 'friends', 'gift', 'gifts', 'mom', 'mum', 'mother', 'dad', 'father',
+            'brother', 'sister', 'bro', 'sis', 'wife', 'husband', 'cousin', 'aunt', 'uncle',
+            'birthday', 'allowance', 'upkeep', 'support', 'for mom', 'for mum', 'for dad',
         ],
         'Household Items' => [
             'tissue', 'toiletries', 'soap', 'detergent', 'bleach', 'hypo', 'omo', 'ariel',
@@ -39,10 +62,6 @@ class AccountController extends Controller
         'Subscriptions' => [
             'applecom', 'apple.com', 'itunes', 'openai', 'chatgpt', 'netflix', 'spotify',
             'youtube', 'icloud', 'google storage', 'subscr', 'subscription', 'canva',
-        ],
-        'Personal Care' => [
-            'salon', 'saloon', 'barber', 'barbing', 'hair', 'braids', 'wig', 'spa',
-            'nails', 'pedicure', 'manicure', 'skincare', 'cosmetics', 'perfume',
         ],
         'Transport' => [
             'bolt', 'uber', 'indrive', 'rida', 'lagride', 'fuel', 'petrol', 'diesel',
@@ -528,9 +547,24 @@ class AccountController extends Controller
     {
         $lower = strtolower(trim($text));
 
+        // 1. Multi-purpose delivery apps & vague words always require user clarification
+        $ambiguousKeywords = ['chowdeck', 'glovo', 'bolt food', 'heyfood'];
+        foreach ($ambiguousKeywords as $amb) {
+            if (str_contains($lower, $amb)) {
+                return null;
+            }
+        }
+
+        // Purely generic words with no item/recipient context (e.g., "Purchase", "POS Purchase")
+        $cleanedGeneric = trim(preg_replace('/\b(pos|web|online|card|nip|trf|transfer|payment|purchase|debit|credit|via|from|to)\b/i', '', $lower));
+        if ($cleanedGeneric === '' || strlen($cleanedGeneric) < 3) {
+            return null;
+        }
+
+        // 2. Match known categories
         foreach (self::KEYWORDS as $category => $keywords) {
             foreach ($keywords as $kw) {
-                if (strlen($kw) <= 5) {
+                if (strlen($kw) <= 4) {
                     if (preg_match('/\b' . preg_quote($kw, '/') . '\b/', $lower)) {
                         return $category;
                     }
@@ -543,11 +577,9 @@ class AccountController extends Controller
         if (str_contains($lower, 'salary') || str_contains($lower, 'payroll')) {
             return 'Salary';
         }
-
         if (str_contains($lower, 'loan repayment') || str_contains($lower, 'easemoni') || str_contains($lower, 'fairmoney') || str_contains($lower, 'carbon')) {
             return 'Loans & Bills';
         }
-
         if (str_contains($lower, 'misc') || str_contains($lower, 'miscellaneous')) {
             return 'Miscellaneous';
         }
