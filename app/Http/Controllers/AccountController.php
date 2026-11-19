@@ -40,7 +40,7 @@ class AccountController extends Controller
         ],
         'Self-Transfer' => [
             'self transfer', 'slef transfer', 'transfer to self', 'from self', 'to self',
-            'self-transfer', 'own account', 'my account', 'internal transfer',
+            'self-transfer', 'own account', 'my account', 'internal transfer', 'self',
         ],
         'Family & Friends' => [
             'family', 'friend', 'friends', 'gift', 'gifts', 'mom', 'mum', 'mother', 'dad', 'father',
