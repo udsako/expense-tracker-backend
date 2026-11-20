@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -63,6 +64,74 @@ class AuthController extends Controller
             'message' => 'Login successful',
             'user' => $user,
             'token' => $token,
+        ]);
+    }
+
+    public function socialLogin(Request $request)
+    {
+        $validated = $request->validate([
+            'id_token' => 'required|string',
+            'provider' => 'required|in:google,apple',
+            'name' => 'nullable|string|max:120',
+        ]);
+
+        $firebaseApiKey = env('FIREBASE_WEB_API_KEY');
+        if (! $firebaseApiKey) {
+            return response()->json(['message' => 'Social login is not configured on the server yet.'], 500);
+        }
+
+        $host = implode('.', ['identitytoolkit', 'googleapis', 'com']);
+        $endpoint = "https://{$host}/v1/accounts:lookup";
+
+        $verifyRes = Http::withQueryParameters([
+            'key' => trim($firebaseApiKey),
+        ])->post($endpoint, [
+            'idToken' => $validated['id_token'],
+        ]);
+
+        if (! $verifyRes->successful() || empty($verifyRes->json('users.0'))) {
+            return response()->json(['message' => 'Invalid or expired social sign-in token.'], 401);
+        }
+
+        $firebaseUser = $verifyRes->json('users.0');
+        $email = strtolower(trim($firebaseUser['email'] ?? ''));
+
+        if (! $email) {
+            return response()->json(['message' => 'Could not retrieve email from social account.'], 422);
+        }
+
+        $fullName = trim($validated['name'] ?? $firebaseUser['displayName'] ?? explode('@', $email)[0]);
+
+        $user = User::firstOrCreate(
+            ['email' => $email],
+            [
+                'name' => $fullName,
+                'password' => bcrypt(Str::random(32)),
+            ]
+        );
+
+        $token = $user->createToken('expense-tracker-token')->plainTextToken;
+
+        return response()->json([
+            'message' => 'Signed in successfully!',
+            'user' => $user,
+            'token' => $token,
+            'is_new_user' => $user->wasRecentlyCreated,
+        ]);
+    }
+
+    public function updateLegalName(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|min:3|max:120',
+        ]);
+
+        $user = $request->user();
+        $user->update(['name' => trim($validated['name'])]);
+
+        return response()->json([
+            'message' => 'Legal bank name saved!',
+            'user' => $user,
         ]);
     }
 

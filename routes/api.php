@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Route;
 // Public Auth Routes
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/auth/social', [AuthController::class, 'socialLogin']);
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
@@ -19,6 +20,7 @@ Route::middleware('auth:sanctum')->group(function () {
         return $request->user();
     });
 
+    Route::put('/user/legal-name', [AuthController::class, 'updateLegalName']);
     Route::post('/logout', [AuthController::class, 'logout']);
 
     // Accounts, Statement Preview & Import, Reconciliation
@@ -35,5 +37,4 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Annual / End-of-Year Analytics Summary
     Route::get('/annual-summary', [ExpenseController::class, 'annualSummary']);
-
 });
